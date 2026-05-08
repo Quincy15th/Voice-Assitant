@@ -3,15 +3,14 @@ import ReactDOM from "react-dom/client";
 import "./index.css";
 import App from "./App";
 
-import { ClerkProvider } from "@clerk/clerk-react";
-
-const clerkPubKey = process.env.REACT_APP_CLERK_PUBLISHABLE_KEY;
+// Xóa Clerk và import AuthProvider tự build
+import { AuthProvider } from "./contexts/AuthContext";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
-    <ClerkProvider publishableKey={clerkPubKey}>
+    <AuthProvider>
       <App />
-    </ClerkProvider>
+    </AuthProvider>
   </React.StrictMode>,
 );

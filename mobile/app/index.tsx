@@ -1,12 +1,22 @@
 import { Redirect } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "./(auth)/AuthContext";
+import { Text, View } from "react-native";
 
 export default function Index() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isSignedIn, isLoaded } = useAuth();
 
-  // ⏳ chờ Clerk load xong
-  if (!isLoaded) return null;
+  if (!isLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <Text>Đang tải...</Text>
+      </View>
+    );
+  }
 
-  // ✅ redirect đúng cách
-  return <Redirect href={isSignedIn ? "/chat" : "/sign-in"} />;
+  // Nếu đã đăng nhập thì vào thẳng Chat, ngược lại ra màn hình Welcome
+  return isSignedIn ? (
+    <Redirect href="/(tabs)/chat" />
+  ) : (
+    <Redirect href="/(auth)" />
+  );
 }

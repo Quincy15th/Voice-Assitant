@@ -1,12 +1,15 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, Stack } from "expo-router"; // Thêm Stack ở đây
 
 export default function AuthHome() {
   const router = useRouter();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome 👋</Text>
+      {/* Ẩn tiêu đề mặc định của hệ thống để giao diện sạch sẽ hơn */}
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <Text style={styles.title}>Welcome</Text>
 
       <TouchableOpacity
         style={styles.button}

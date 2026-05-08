@@ -5,9 +5,21 @@ import ChatMessages from "./components/ChatMessages";
 import ControlPanel from "./components/ControlPanel";
 import VoiceOverlay from "./components/VoiceOverlay";
 import { chatService } from "./services/chatService";
-import { SignedIn, SignedOut, SignIn, UserButton } from "@clerk/clerk-react";
+
+// IMPORT CÁC COMPONENT XÁC THỰC
+import { useAuth } from "./contexts/AuthContext";
+import SignIn from "./components/SignIn";
+import SignUp from "./components/SignUp";
 
 function App() {
+  const { isAuthenticated, user, logout } = useAuth();
+  const [currentAuthView, setCurrentAuthView] = useState("signin");
+
+  // --- STATE CHO PROFILE MENU ---
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef(null);
+
+  // --- CÁC STATE CŨ ---
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -15,8 +27,6 @@ function App() {
   const [selectedVoice, setSelectedVoice] = useState("alloy");
   const [autoPlay, setAutoPlay] = useState(true);
   const [transcript, setTranscript] = useState("");
-
-  // thêm state này để báo VoiceRecorder dừng ghi âm
   const [forceStopRecording, setForceStopRecording] = useState(false);
 
   const messagesEndRef = useRef(null);
@@ -29,6 +39,23 @@ function App() {
     scrollToBottom();
   }, [messages]);
 
+  // Effect để xử lý việc click ra ngoài vùng menu thì đóng menu lại
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target)
+      ) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const addMessage = (message) => {
     setMessages((prev) => [
       ...prev,
@@ -38,20 +65,15 @@ function App() {
 
   const speakText = (text) => {
     if (!text || !("speechSynthesis" in window)) return;
-
     window.speechSynthesis.cancel();
-
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "vi-VN";
-
     const voices = window.speechSynthesis.getVoices();
     const viVoice =
       voices.find((v) => v.lang?.toLowerCase().includes("vi")) || null;
-
     if (viVoice) {
       utterance.voice = viVoice;
     }
-
     window.speechSynthesis.speak(utterance);
   };
 
@@ -111,7 +133,6 @@ function App() {
       console.error("Voice message error:", err);
     } finally {
       setIsLoading(false);
-
       setTimeout(() => {
         setIsRecording(false);
         setTranscript("");
@@ -121,7 +142,6 @@ function App() {
 
   const handleTextMessage = async (text) => {
     if (!text.trim()) return;
-
     setIsLoading(true);
     setError(null);
 
@@ -132,7 +152,6 @@ function App() {
         timestamp: new Date().toISOString(),
         isVoice: false,
       };
-
       addMessage(userMessage);
 
       const chatResponse = await chatService.sendMessage(text);
@@ -143,7 +162,6 @@ function App() {
         timestamp: chatResponse.timestamp,
         isVoice: true,
       };
-
       addMessage(assistantMessage);
 
       if (autoPlay) {
@@ -179,82 +197,125 @@ function App() {
     }
   };
 
-  // nút tạm dừng trong overlay sẽ gọi hàm này
   const handleStopVoiceOverlay = () => {
     setError(null);
     window.speechSynthesis?.cancel();
-
     setForceStopRecording(true);
-
     setTimeout(() => {
       setForceStopRecording(false);
     }, 100);
   };
 
+  // Hàm lấy chữ cái đầu tiên của email/tên để làm Avatar
+  const getInitials = (email) => {
+    if (!email) return "U";
+    return email.charAt(0).toUpperCase();
+  };
+
+  // ==========================================
+  // GIAO DIỆN KHI CHƯA ĐĂNG NHẬP
+  // ==========================================
+  if (!isAuthenticated) {
+    return (
+      <div
+        style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}
+      >
+        {currentAuthView === "signin" ? (
+          <SignIn onSwitchView={setCurrentAuthView} />
+        ) : (
+          <SignUp onSwitchView={setCurrentAuthView} />
+        )}
+      </div>
+    );
+  }
+
+  // ==========================================
+  // GIAO DIỆN CHÍNH (KHI ĐÃ ĐĂNG NHẬP THÀNH CÔNG)
+  // ==========================================
   return (
-    <>
-      <SignedOut>
-        <div
-          style={{ display: "flex", justifyContent: "center", marginTop: 100 }}
-        >
-          <SignIn />
-        </div>
-      </SignedOut>
+    <div className="App">
+      <header className="app-header">
+        <h1>🎙️ AI Voice Chat</h1>
 
-      <SignedIn>
-        <div className="App">
-          <header className="app-header">
-            <h1>🎙️ AI Voice Chat</h1>
-            <UserButton />
-          </header>
+        {/* --- KHU VỰC AVATAR & DROPDOWN MENU --- */}
+        <div className="profile-container" ref={profileMenuRef}>
+          <button
+            className="avatar-btn"
+            onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+          >
+            {getInitials(user?.email)}
+          </button>
 
-          <main className="app-main">
-            <div className="chat-container">
-              <ChatMessages
-                messages={messages}
-                isLoading={isLoading}
-                onPlayResponse={handlePlayResponse}
-              />
-              <div ref={messagesEndRef} />
-            </div>
-
-            <div className="input-container">
-              <VoiceRecorder
-                onVoiceMessage={handleVoiceMessage}
-                onTextMessage={handleTextMessage}
-                isRecording={isRecording}
-                setIsRecording={setIsRecording}
-                isLoading={isLoading}
-                forceStopRecording={forceStopRecording}
-              />
-            </div>
-
-            <ControlPanel
-              selectedVoice={selectedVoice}
-              onVoiceChange={setSelectedVoice}
-              autoPlay={autoPlay}
-              onAutoPlayChange={setAutoPlay}
-              onClearHistory={handleClearHistory}
-              messageCount={messages.length}
-            />
-          </main>
-
-          <VoiceOverlay
-            open={isRecording || isLoading}
-            isLoading={isLoading}
-            transcript={transcript}
-            onClose={handleStopVoiceOverlay}
-          />
-
-          {error && (
-            <div className="error-notification">
-              <p>{error}</p>
-              <button onClick={() => setError(null)}>×</button>
+          {isProfileMenuOpen && (
+            <div className="profile-dropdown">
+              <div className="profile-dropdown-header">
+                <p className="profile-email">
+                  {user?.email || "user@example.com"}
+                </p>
+              </div>
+              <ul className="profile-menu-list">
+                <li>
+                  <button
+                    className="profile-menu-item logout-text"
+                    onClick={() => {
+                      setIsProfileMenuOpen(false);
+                      logout();
+                    }}
+                  >
+                    Đăng xuất
+                  </button>
+                </li>
+              </ul>
             </div>
           )}
         </div>
-      </SignedIn>
-    </>
+      </header>
+
+      <main className="app-main">
+        <div className="chat-container">
+          <ChatMessages
+            messages={messages}
+            isLoading={isLoading}
+            onPlayResponse={handlePlayResponse}
+          />
+          <div ref={messagesEndRef} />
+        </div>
+
+        <div className="input-container">
+          <VoiceRecorder
+            onVoiceMessage={handleVoiceMessage}
+            onTextMessage={handleTextMessage}
+            isRecording={isRecording}
+            setIsRecording={setIsRecording}
+            isLoading={isLoading}
+            forceStopRecording={forceStopRecording}
+          />
+        </div>
+
+        <ControlPanel
+          selectedVoice={selectedVoice}
+          onVoiceChange={setSelectedVoice}
+          autoPlay={autoPlay}
+          onAutoPlayChange={setAutoPlay}
+          onClearHistory={handleClearHistory}
+          messageCount={messages.length}
+        />
+      </main>
+
+      <VoiceOverlay
+        open={isRecording || isLoading}
+        isLoading={isLoading}
+        transcript={transcript}
+        onClose={handleStopVoiceOverlay}
+      />
+
+      {error && (
+        <div className="error-notification">
+          <p>{error}</p>
+          <button onClick={() => setError(null)}>×</button>
+        </div>
+      )}
+    </div>
   );
 }
 
