@@ -199,11 +199,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Verify speakers/headphones are working
 - Try different voice options in settings
 
-## 📧 Support
-
-For support, please open an issue in the GitHub repository or contact [DIatonic-AI](https://github.com/DIatonic-AI).
-
----
-
-**Built with ❤️ by DIatonic-AI**
->>>>>>> 516fcb1 (Lần đầu tải code lên)
