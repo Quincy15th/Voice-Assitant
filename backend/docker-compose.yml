@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: voice-assistant-backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=${PORT:-3000}
+      - CLIENT_URL=${CLIENT_URL:-http://localhost:5173}
+      - DB_USER=${DB_USER:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-071205}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME:-voice_assistant}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      - LLM_URL=${LLM_URL}
+      - LLM_MODEL=${LLM_MODEL}
+      - WEATHER_API_KEY=${WEATHER_API_KEY}
+      - WEATHER_CITY=${WEATHER_CITY:-Hanoi}
+      - DATABASE_URL=postgresql://${DB_USER:-admin}:${DB_PASSWORD:-071205}@postgres:${DB_PORT:-5432}/${DB_NAME:-voice_assistant}
+      - CORS_ORIGIN=${CLIENT_URL:-http://localhost:5173}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - voice-assistant-network
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: voice-assistant-db
+    environment:
+      - POSTGRES_DB=${DB_NAME:-voice_assistant}
+      - POSTGRES_USER=${DB_USER:-admin}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-071205}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - voice-assistant-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+volumes:
+  postgres_data:
+networks:
+  voice-assistant-network:
+    driver: bridge
